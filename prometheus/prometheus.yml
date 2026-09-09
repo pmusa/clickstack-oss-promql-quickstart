@@ -1,0 +1,34 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: clickstack-local
+
+scrape_configs:
+  # Prometheus scraping itself.
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Host CPU / memory / disk / network.
+  - job_name: node-exporter
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # ClickHouse's own internal metrics, exposed by the /metrics handler
+  # we enabled in clickhouse/config.d/prometheus.xml.
+  - job_name: clickhouse
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["clickstack:9363"]
+
+# Every scraped sample is forwarded into the prom.metrics TimeSeries table.
+remote_write:
+  - url: "http://clickstack:9363/write"
+
+# PromQL reads come back out of ClickHouse. read_recent: true means even
+# queries over the last few minutes are served from ClickHouse, not just
+# from Prometheus' local TSDB.
+remote_read:
+  - url: "http://clickstack:9363/read"
+    read_recent: true

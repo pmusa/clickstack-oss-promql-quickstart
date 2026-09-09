@@ -1,0 +1,8 @@
+# Downloaded by scripts/load-sample-data.sh
+sample.tar.gz
+sample.tar.gz.part
+
+# Local Claude Code permissions, specific to one machine
+.claude/settings.local.json
+
+.DS_Store

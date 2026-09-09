@@ -1,0 +1,529 @@
+{
+  "uid": "clickstack-tour",
+  "title": "ClickStack tour",
+  "description": "Logs, traces and OTel metrics from ClickStack, plus Prometheus metrics stored in a ClickHouse TimeSeries table and queried with PromQL.",
+  "tags": [
+    "clickstack",
+    "clickhouse",
+    "otel",
+    "promql"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 100,
+      "title": "ClickStack telemetry - OpenTelemetry data in ClickHouse",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 1,
+      "title": "Log volume by service",
+      "type": "timeseries",
+      "description": "default.otel_logs - the table the ClickStack collector writes logs into.",
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse-clickstack"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse-clickstack"
+          },
+          "pluginVersion": "4.21.2",
+          "editorType": "sql",
+          "rawSql": "SELECT\n  $__timeInterval(Timestamp) AS time,\n  ServiceName,\n  count() AS logs\nFROM default.otel_logs\nWHERE $__timeFilter(Timestamp)\nGROUP BY time, ServiceName\nORDER BY time",
+          "format": 0,
+          "queryType": "timeseries"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 25,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Errors by service",
+      "type": "timeseries",
+      "description": "Same table, filtered on SeverityText.",
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse-clickstack"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse-clickstack"
+          },
+          "pluginVersion": "4.21.2",
+          "editorType": "sql",
+          "rawSql": "SELECT\n  $__timeInterval(Timestamp) AS time,\n  ServiceName,\n  count() AS errors\nFROM default.otel_logs\nWHERE $__timeFilter(Timestamp)\n  AND SeverityText IN ('ERROR', 'Error', 'error', 'FATAL', 'Fatal')\nGROUP BY time, ServiceName\nORDER BY time",
+          "format": 0,
+          "queryType": "timeseries"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 25,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Span latency p50 / p95 / p99",
+      "type": "timeseries",
+      "description": "default.otel_traces. Duration is nanoseconds, divided down to ms.",
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse-clickstack"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse-clickstack"
+          },
+          "pluginVersion": "4.21.2",
+          "editorType": "sql",
+          "rawSql": "SELECT\n  $__timeInterval(Timestamp) AS time,\n  quantile(0.50)(Duration) / 1e6 AS p50,\n  quantile(0.95)(Duration) / 1e6 AS p95,\n  quantile(0.99)(Duration) / 1e6 AS p99\nFROM default.otel_traces\nWHERE $__timeFilter(Timestamp)\nGROUP BY time\nORDER BY time",
+          "format": 0,
+          "queryType": "timeseries"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Slowest operations (p95)",
+      "type": "table",
+      "description": "Top operations by tail latency.",
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse-clickstack"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse-clickstack"
+          },
+          "pluginVersion": "4.21.2",
+          "editorType": "sql",
+          "rawSql": "SELECT\n  ServiceName AS service,\n  SpanName AS operation,\n  count() AS spans,\n  round(quantile(0.95)(Duration) / 1e6, 1) AS p95_ms,\n  round(100 * countIf(StatusCode = 'STATUS_CODE_ERROR') / count(), 1) AS error_pct\nFROM default.otel_traces\nWHERE $__timeFilter(Timestamp)\nGROUP BY service, operation\nHAVING spans > 5\nORDER BY p95_ms DESC\nLIMIT 20",
+          "format": 1,
+          "queryType": "timeseries"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Logs",
+      "type": "logs",
+      "description": "Raw log lines straight out of ClickHouse.",
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 24,
+        "h": 10
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse-clickstack"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse-clickstack"
+          },
+          "pluginVersion": "4.21.2",
+          "editorType": "sql",
+          "rawSql": "SELECT\n  Timestamp AS timestamp,\n  Body AS body,\n  SeverityText AS level,\n  ServiceName AS service,\n  TraceId AS trace_id\nFROM default.otel_logs\nWHERE $__timeFilter(Timestamp)\nORDER BY Timestamp DESC\nLIMIT 200",
+          "format": 2,
+          "queryType": "timeseries"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 200,
+      "title": "Prometheus metrics stored in ClickHouse (TimeSeries engine) - queried with PromQL",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 6,
+      "title": "Samples in prom.metrics",
+      "type": "stat",
+      "description": "Rows in the TimeSeries table's inner data table - written by Prometheus remote_write.",
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 4,
+        "h": 5
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse-clickstack"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse-clickstack"
+          },
+          "pluginVersion": "4.21.2",
+          "editorType": "sql",
+          "rawSql": "SELECT count() AS samples FROM timeSeriesData(prom.metrics)",
+          "format": 1,
+          "queryType": "timeseries"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 7,
+      "title": "Distinct series",
+      "type": "stat",
+      "description": "One row per unique label set.",
+      "gridPos": {
+        "x": 4,
+        "y": 28,
+        "w": 4,
+        "h": 5
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse-clickstack"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse-clickstack"
+          },
+          "pluginVersion": "4.21.2",
+          "editorType": "sql",
+          "rawSql": "SELECT count() AS series FROM timeSeriesTags(prom.metrics)",
+          "format": 1,
+          "queryType": "timeseries"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 8,
+      "title": "CPU busy % - PromQL via Prometheus datasource",
+      "type": "timeseries",
+      "description": "Real PromQL through the Prometheus datasource. Prometheus is the query engine; the samples are read back out of ClickHouse via remote_read.",
+      "gridPos": {
+        "x": 8,
+        "y": 28,
+        "w": 16,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-local"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus-local"
+          },
+          "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[2m])) * 100)",
+          "legendFormat": "{{instance}}",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "CPU busy % - PromQL executed inside ClickHouse",
+      "type": "timeseries",
+      "description": "Same PromQL expression, but evaluated by ClickHouse itself via the prometheusQueryRange table function. No Prometheus in the query path.",
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse-clickstack"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse-clickstack"
+          },
+          "pluginVersion": "4.21.2",
+          "editorType": "sql",
+          "rawSql": "SELECT\n  t.1 AS time,\n  t.2 AS cpu_busy_pct\nFROM prometheusQueryRange(\n    prom.metrics,\n    '100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[2m])) * 100)',\n    $__fromTime,\n    $__toTime,\n    30\n)\nARRAY JOIN time_series AS t\nORDER BY time",
+          "format": 0,
+          "queryType": "timeseries"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "ClickHouse queries/sec - PromQL inside ClickHouse",
+      "type": "timeseries",
+      "description": "ClickHouse scraping its own /metrics endpoint, stored in ClickHouse, queried with PromQL in ClickHouse.",
+      "gridPos": {
+        "x": 12,
+        "y": 33,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse-clickstack"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse-clickstack"
+          },
+          "pluginVersion": "4.21.2",
+          "editorType": "sql",
+          "rawSql": "SELECT\n  t.1 AS time,\n  arrayFilter(x -> (x.1 = 'instance'), tags)[1].2 AS instance,\n  t.2 AS queries_per_sec\nFROM prometheusQueryRange(\n    prom.metrics,\n    'rate(ClickHouseProfileEvents_Query[2m])',\n    $__fromTime,\n    $__toTime,\n    30\n)\nARRAY JOIN time_series AS t\nORDER BY time",
+          "format": 0,
+          "queryType": "timeseries"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}

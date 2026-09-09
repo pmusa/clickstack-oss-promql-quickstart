@@ -1,0 +1,39 @@
+apiVersion: 1
+
+datasources:
+  # Logs, traces and OTel metrics stored by ClickStack.
+  - name: ClickHouse
+    uid: clickhouse-clickstack
+    type: grafana-clickhouse-datasource
+    isDefault: true
+    jsonData:
+      host: clickstack
+      port: 9000
+      protocol: native
+      secure: false
+      username: default
+      defaultDatabase: default
+      # Tell the plugin where the OTel tables live so its Logs/Traces
+      # query builders work out of the box.
+      logs:
+        defaultDatabase: default
+        defaultTable: otel_logs
+        otelEnabled: true
+        otelVersion: latest
+      traces:
+        defaultDatabase: default
+        defaultTable: otel_traces
+        otelEnabled: true
+        otelVersion: latest
+    secureJsonData:
+      password: ""
+
+  # PromQL engine. Storage behind it is ClickHouse (remote_write / remote_read).
+  - name: Prometheus
+    uid: prometheus-local
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s

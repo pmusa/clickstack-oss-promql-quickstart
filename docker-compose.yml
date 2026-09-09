@@ -1,0 +1,94 @@
+name: clickstack-local-grafana
+
+services:
+  # ClickStack all-in-one: HyperDX UI + OTel collector + ClickHouse + MongoDB in one container.
+  clickstack:
+    image: clickhouse/clickstack-all-in-one:latest
+    container_name: clickstack
+    environment:
+      # Pre-seed the OTLP ingestion key so scripts don't have to scrape it out of the UI.
+      # Only honoured by the all-in-one / dev images.
+      INGESTION_API_KEY: ${INGESTION_API_KEY:?set INGESTION_API_KEY in .env}
+    ports:
+      - "8080:8080"   # ClickStack (HyperDX) UI
+      - "4317:4317"   # OTLP/gRPC ingest
+      - "4318:4318"   # OTLP/HTTP ingest
+      - "8123:8123"   # ClickHouse HTTP
+      - "9000:9000"   # ClickHouse native
+      - "9363:9363"   # ClickHouse Prometheus endpoints: /metrics, /write, /read
+    volumes:
+      - ./clickhouse/config.d/prometheus.xml:/etc/clickhouse-server/config.d/prometheus.xml:ro
+      - ./clickhouse/users.d/zz-demo-access.xml:/etc/clickhouse-server/users.d/zz-demo-access.xml:ro
+      - ./clickhouse/initdb:/docker-entrypoint-initdb.d:ro
+      - clickhouse-data:/var/lib/clickhouse
+      - mongo-data:/data/db
+    healthcheck:
+      # Not just "is ClickHouse up" - also "has initdb created the TimeSeries
+      # table", so Prometheus never starts writing to a table that isn't there.
+      test: ["CMD-SHELL", "clickhouse-client -q 'EXISTS TABLE prom.metrics' | grep -q 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+
+  # Scrapes local targets, ships every sample to ClickHouse via remote_write,
+  # and reads it back for PromQL via remote_read.
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Keep only a short local window. Everything older is served from
+      # ClickHouse over remote_read, which is the point of this demo.
+      - --storage.tsdb.retention.time=2h
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      clickstack:
+        condition: service_healthy
+
+  # A real local metrics source to scrape (CPU / memory / disk / filesystem).
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    ports:
+      - "9100:9100"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_DEFAULT_THEME: dark
+      # Skip the login wall so the demo opens straight onto the dashboards.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      clickstack:
+        condition: service_healthy
+
+volumes:
+  clickhouse-data:
+  mongo-data:
+  prometheus-data:
+  grafana-data:

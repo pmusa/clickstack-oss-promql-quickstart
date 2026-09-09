@@ -1,0 +1,27 @@
+<clickhouse>
+    <!--
+      LOCAL DEMO ONLY.
+
+      The stock ClickHouse entrypoint sees no CLICKHOUSE_USER/CLICKHOUSE_PASSWORD and
+      writes users.d/default-user.xml, pinning the 'default' user to 127.0.0.1 only.
+      That is the right default, but it also blocks Grafana and Prometheus, which reach
+      ClickHouse from their own containers.
+
+      This file loads after default-user.xml (alphabetical order) and re-opens 'default'
+      to the container network. Do not do this on anything but a laptop demo; see the
+      "Locking it down" note in README.md.
+    -->
+    <users>
+        <default>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+        </default>
+    </users>
+    <profiles>
+        <default>
+            <!-- Needed for the timeSeries* / PromQL aggregate helpers. -->
+            <allow_experimental_time_series_aggregate_functions>1</allow_experimental_time_series_aggregate_functions>
+        </default>
+    </profiles>
+</clickhouse>

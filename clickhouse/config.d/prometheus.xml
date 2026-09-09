@@ -1,0 +1,44 @@
+<clickhouse>
+    <!--
+      Turn on ClickHouse's Prometheus-compatible endpoints.
+      One port, three handlers:
+        GET  /metrics  -> ClickHouse exposes its own internal metrics (scrape target)
+        POST /write    -> Prometheus remote_write sink  (ClickHouse becomes the TSDB)
+        POST /read     -> Prometheus remote_read source (PromQL reads back out of ClickHouse)
+      Storage for /write and /read is the TimeSeries table created in initdb/01-timeseries.sql.
+    -->
+    <prometheus>
+        <port>9363</port>
+        <handlers>
+            <expose_metrics>
+                <url>/metrics</url>
+                <methods>GET</methods>
+                <handler>
+                    <type>expose_metrics</type>
+                    <metrics>true</metrics>
+                    <asynchronous_metrics>true</asynchronous_metrics>
+                    <events>true</events>
+                    <errors>true</errors>
+                </handler>
+            </expose_metrics>
+            <remote_write>
+                <url>/write</url>
+                <methods>POST</methods>
+                <handler>
+                    <type>remote_write</type>
+                    <database>prom</database>
+                    <table>metrics</table>
+                </handler>
+            </remote_write>
+            <remote_read>
+                <url>/read</url>
+                <methods>POST</methods>
+                <handler>
+                    <type>remote_read</type>
+                    <database>prom</database>
+                    <table>metrics</table>
+                </handler>
+            </remote_read>
+        </handlers>
+    </prometheus>
+</clickhouse>
